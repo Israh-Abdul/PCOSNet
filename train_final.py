@@ -1,7 +1,9 @@
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras import layers, models
-import numpy as np
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+
 import matplotlib.pyplot as plt
 import pickle
 
@@ -10,7 +12,6 @@ IMG_HEIGHT = 150
 IMG_WIDTH = 150
 BATCH_SIZE = 32
 EPOCHS = 10
-NUM_CLASSES = 1  # Binary classification
 
 # Data Augmentation
 train_datagen = ImageDataGenerator(
@@ -21,7 +22,7 @@ train_datagen = ImageDataGenerator(
     validation_split=0.2
 )
 train_generator = train_datagen.flow_from_directory(
-    'C:/Users/fayiz/OneDrive/Desktop/PROJECT/SIMPLECAPSNET/dataset/',
+    'C:/Users/fayiz/OneDrive/Desktop/PROJECT/SIMPLECNN/dataset',
     target_size=(IMG_HEIGHT, IMG_WIDTH),
     batch_size=BATCH_SIZE,
     class_mode='binary',
@@ -29,59 +30,32 @@ train_generator = train_datagen.flow_from_directory(
 )
 
 validation_generator = train_datagen.flow_from_directory(
-    'C:/Users/fayiz/OneDrive/Desktop/PROJECT/SIMPLECAPSNET/dataset/',
+    'C:/Users/fayiz/OneDrive/Desktop/PROJECT/SIMPLECNN/dataset',
     target_size=(IMG_HEIGHT, IMG_WIDTH),
     batch_size=BATCH_SIZE,
     class_mode='binary',
     subset='validation'
 )
 
-# Define Capsule Network Layer
-def squash(x, axis=-1):
-    s_squared_norm = tf.reduce_sum(tf.square(x), axis, keepdims=True)
-    scale = s_squared_norm / (1 + s_squared_norm) / tf.sqrt(s_squared_norm + 1e-8)
-    return scale * x
+# Build the CNN model
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)),
+    MaxPooling2D(pool_size=(2, 2)),
+    
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+    
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+    
+    Flatten(),
+    Dense(512, activation='relu'),
+    Dropout(0.5),
+    Dense(1, activation='sigmoid')
+])
 
-class CapsuleLayer(layers.Layer):
-    def __init__(self, num_capsules, dim_capsules, routing_iters=3, **kwargs):
-        super(CapsuleLayer, self).__init__(**kwargs)
-        self.num_capsules = num_capsules
-        self.dim_capsules = dim_capsules
-        self.routing_iters = routing_iters
-
-    def build(self, input_shape):
-        self.W = self.add_weight(shape=(input_shape[1], self.num_capsules, self.dim_capsules, input_shape[2]),
-                                initializer='glorot_uniform', trainable=True)
-
-    def call(self, inputs):
-        inputs = tf.expand_dims(inputs, -1)
-        u_hat = tf.linalg.matmul(self.W, inputs, transpose_a=True)
-        u_hat = tf.transpose(u_hat, perm=[0, 2, 3, 1])
-        
-        b = tf.zeros(shape=(tf.shape(inputs)[0], self.num_capsules, tf.shape(inputs)[1]))
-        for _ in range(self.routing_iters):
-            c = tf.nn.softmax(b, axis=1)
-            s = tf.reduce_sum(c * u_hat, axis=2)
-            v = squash(s)
-            if _ < self.routing_iters - 1:
-                b += tf.reduce_sum(u_hat * tf.expand_dims(v, 2), axis=-1)
-        return v
-
-# Define CapsNet model
-def build_capsnet_model():
-    inputs = layers.Input(shape=(IMG_HEIGHT, IMG_WIDTH, 3))
-    x = layers.Conv2D(256, (9, 9), activation='relu', padding='valid')(inputs)
-    x = layers.Reshape(target_shape=[-1, 8])(x)
-    x = CapsuleLayer(num_capsules=8, dim_capsules=16)(x)
-    x = layers.Flatten()(x)
-    x = layers.Dense(NUM_CLASSES, activation='sigmoid')(x)
-
-    model = models.Model(inputs, x)
-    return model
-
-# Build and compile the model
-model = build_capsnet_model()
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+# Compile the model
+model.compile(optimizer=Adam(lr=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
 # Train the model
 history = model.fit(
@@ -93,29 +67,26 @@ history = model.fit(
 )
 
 # Save the model
-model_save_path = 'C:/Users/fayiz/OneDrive/Desktop/PROJECT/SIMPLECAPSNET/capsnet.h5'
-model.save(model_save_path)
+model.save('C:/Users/fayiz/OneDrive/Desktop/PROJECT/SIMPLECNN/trancnn.h5')
 
 # Evaluate the model
 loss, accuracy = model.evaluate(validation_generator)
 print(f"Validation Accuracy: {accuracy*100:.2f}%")
 
 print("Training completed")
+f = open('history.pckl', 'wb')
+pickle.dump(history.history, f)
+f.close()
 
-# Save training history
-history_path = 'history.pckl'
-with open(history_path, 'wb') as f:
-    pickle.dump(history.history, f)
 
-# Load and plot training history
-with open(history_path, 'rb') as f:
-    history = pickle.load(f)
-
+f = open('history.pckl', 'rb')
+history = pickle.load(f)
+f.close()
+print(history)
 plt.figure()
-plt.plot(history.get('accuracy', []), label='Training Accuracy')
-plt.plot(history.get('val_accuracy', []), label='Validation Accuracy')
-plt.title('Model Accuracy')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
+plt.plot(history['accuracy'],label='ACCURACY')
+plt.title('ACCURACY')
+plt.xlabel('LABELS')
+plt.ylabel('ACCURACY')
 plt.legend()
 plt.show()
