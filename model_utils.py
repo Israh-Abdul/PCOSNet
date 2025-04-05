@@ -4,7 +4,7 @@ import gdown
 import os
 from capsule_layers import CapsuleLayer, PrimaryCap, Mask, Length
 
-GDRIVE_URL = "https://drive.google.com/uc?id=1ABM_i0WrNQf1OBw8fePznJNczWUNE2LR"  # Replace with your actual file ID
+GDRIVE_URL = "https://drive.google.com/file/d/1ABM_i0WrNQf1OBw8fePznJNczWUNE2LR/view?usp=sharing"  # Replace with your actual file ID
 MODEL_PATH = "./pcos_capsnet_eval_model.h5"
 
 @tf.keras.utils.register_keras_serializable()
