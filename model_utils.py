@@ -15,8 +15,12 @@ def download_model():
         gdown.download(GDRIVE_URL, MODEL_PATH, quiet=False)
 
 def custom_objects():
-    """Return a dictionary of custom objects for model loading."""
-    return {'CapsuleLayer': CapsuleLayer}
+    return {
+        'CapsuleLayer': CapsuleLayer,
+        'PrimaryCap': PrimaryCap,
+        'Mask': Mask,
+        'Length': Length
+    }
 
 def load_model_from_gdrive():
     """Download and load the trained CapsuleNet model."""
