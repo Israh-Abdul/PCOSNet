@@ -15,18 +15,29 @@ def custom_objects():
         "Mask": Mask,
     }
 
-@st.cache_resource
-def load_model_from_gdrive():
-    if not os.path.exists(MODEL_PATH):
-        print("Downloading model from Google Drive...")
-        url = f"https://drive.google.com/uc?id={FILE_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
-    
-    print("Loading model...")
-    return tf.keras.models.load_model(MODEL_PATH, custom_objects=custom_objects(), compile=False)
+import os
+import gdown
+import tensorflow as tf
+from capsule_layers import CapsuleLayer, Length, Mask
 
-def predict(model, preprocessed_image):
-    prediction = model.predict(tf.expand_dims(preprocessed_image, axis=0))
-    predicted_class = tf.argmax(prediction, axis=1).numpy()[0]
-    confidence = tf.reduce_max(prediction).numpy()
-    return predicted_class, confidence
+MODEL_PATH = "./models/pcos_capsnet_eval_model.h5"
+GDRIVE_URL = "https://drive.google.com/uc?id=YOUR_MODEL_FILE_ID"  # replace with actual ID
+
+def custom_objects():
+    return {
+        "CapsuleLayer": CapsuleLayer,
+        "Length": Length,
+        "Mask": Mask
+    }
+
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        print("Downloading model from Google Drive...")
+        gdown.download(GDRIVE_URL, MODEL_PATH, quiet=False)
+
+@tf.keras.utils.register_keras_serializable()
+def load_model_from_gdrive():
+    download_model()
+    model = tf.keras.models.load_model(MODEL_PATH, custom_objects=custom_objects(), compile=False)
+    return model
