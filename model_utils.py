@@ -12,8 +12,9 @@ def custom_objects():
     return {
         "CapsuleLayer": CapsuleLayer,
         "Length": Length,
-        "Mask": Mask,
+        "Mask": Mask
     }
+    
 def download_model():
     print("Checking if model exists at:", MODEL_PATH)
     if not os.path.exists(MODEL_PATH):
