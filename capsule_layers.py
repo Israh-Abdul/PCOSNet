@@ -1,75 +1,68 @@
 import tensorflow as tf
 from tensorflow.keras import layers
-from tensorflow.keras import backend as K
+import numpy as np
 
-class Length(layers.Layer):
-    def call(self, inputs, **kwargs):
-        return K.sqrt(K.sum(K.square(inputs), -1))
-
-class Mask(layers.Layer):
-    def call(self, inputs, **kwargs):
-        if isinstance(inputs, list):  # True label is provided
-            inputs, mask = inputs
-        else:  # If no true label, mask by max length
-            x = K.sqrt(K.sum(K.square(inputs), -1))
-            mask = K.one_hot(indices=K.argmax(x, 1), num_classes=x.shape[1])
-        masked = K.batch_flatten(inputs * K.expand_dims(mask, -1))
-        return masked
-        
 @tf.keras.utils.register_keras_serializable()
-class CapsuleLayer(layers.Layer):
+class CapsuleLayer(tf.keras.layers.Layer):
     def __init__(self, num_capsule, dim_capsule, routings=3, **kwargs):
         super(CapsuleLayer, self).__init__(**kwargs)
         self.num_capsule = num_capsule
         self.dim_capsule = dim_capsule
         self.routings = routings
+        self.kernel_initializer = tf.keras.initializers.get('glorot_uniform')
 
     def build(self, input_shape):
+        assert len(input_shape) >= 3, "Input Tensor shape should be [None, input_num_capsule, input_dim_capsule]"
+
         self.input_num_capsule = input_shape[1]
         self.input_dim_capsule = input_shape[2]
-        self.W = self.add_weight(
-            shape=[self.input_num_capsule, self.num_capsule,
-                   self.input_dim_capsule, self.dim_capsule],
-            initializer='glorot_uniform',
-            trainable=True
-        )
 
-    def call(self, inputs, **kwargs):
-        # Expand dims for matmul
-        inputs_expand = K.expand_dims(K.expand_dims(inputs, 2), 2)
-        W_expand = K.expand_dims(self.W, 0)
-        u_hat = tf.matmul(inputs_expand, W_expand)
-        u_hat = K.squeeze(u_hat, axis=-2)
+        # Transformation matrix
+        self.W = self.add_weight(shape=[self.input_num_capsule, self.num_capsule,
+                                        self.input_dim_capsule, self.dim_capsule],
+                                 initializer=self.kernel_initializer,
+                                 name='W',
+                                 trainable=True)
+        super(CapsuleLayer, self).build(input_shape)
 
-        b = tf.zeros_like(u_hat[:, :, :, 0])
+    def call(self, inputs, training=None):
+        # Expand dims to perform batch matrix multiplication
+        inputs_expand = tf.expand_dims(inputs, 2)
+        inputs_tiled = tf.expand_dims(inputs_expand, 3)
+
+        # Compute "prediction vectors" by applying transformation matrix W
+        u_hat = tf.matmul(inputs_tiled, self.W)  # shape: [batch_size, input_caps, num_caps, 1, dim_caps]
+        u_hat = tf.squeeze(u_hat, axis=-2)
+
+        # Routing algorithm
+        b = tf.zeros(shape=[tf.shape(inputs)[0], self.input_num_capsule, self.num_capsule])
+
         for i in range(self.routings):
             c = tf.nn.softmax(b, axis=2)
-            s = tf.reduce_sum(tf.expand_dims(c, -1) * u_hat, axis=1)
+            c = tf.expand_dims(c, axis=-1)
+            s = tf.reduce_sum(c * u_hat, axis=1)  # weighted sum
             v = self.squash(s)
+
             if i < self.routings - 1:
-                b += tf.reduce_sum(u_hat * tf.expand_dims(v, 1), axis=-1)
+                v_expand = tf.expand_dims(v, axis=1)
+                b += tf.reduce_sum(u_hat * v_expand, axis=-1)
+
         return v
-        
-    @classmethod
-    def from_config(cls, config):
-        return cls(
-            num_capsule=config['num_capsule'],
-            dim_capsule=config['dim_capsule'],
-            routings=config.get('routings', 3),
-            **{k: v for k, v in config.items() if k not in ['num_capsule', 'dim_capsule', 'routings']}
-        )
-        
+
     def squash(self, s, axis=-1):
-        s_squared_norm = K.sum(K.square(s), axis, keepdims=True)
-        scale = s_squared_norm / (1 + s_squared_norm) / K.sqrt(s_squared_norm + K.epsilon())
+        s_norm = tf.norm(s, axis=axis, keepdims=True)
+        scale = (s_norm**2) / (1 + s_norm**2) / (s_norm + tf.keras.backend.epsilon())
         return scale * s
 
-# Register for loading
-@tf.keras.utils.register_keras_serializable()
-class CapsuleLayer(CapsuleLayer): pass
+    def get_config(self):
+        config = super(CapsuleLayer, self).get_config()
+        config.update({
+            'num_capsule': self.num_capsule,
+            'dim_capsule': self.dim_capsule,
+            'routings': self.routings
+        })
+        return config
 
-@tf.keras.utils.register_keras_serializable()
-class Length(Length): pass
-
-@tf.keras.utils.register_keras_serializable()
-class Mask(Mask): pass
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
