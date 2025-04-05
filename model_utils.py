@@ -14,12 +14,13 @@ def custom_objects():
         "Length": Length,
         "Mask": Mask,
     }
-
 def download_model():
+    print("Checking if model exists at:", MODEL_PATH)
     if not os.path.exists(MODEL_PATH):
-        print("Downloading model from Google Drive...")
+        print("Model not found. Creating directory and downloading...")
         os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
         gdown.download(GDRIVE_URL, MODEL_PATH, quiet=False)
+        print("Download complete.")
     else:
         print("Model already exists locally.")
 
