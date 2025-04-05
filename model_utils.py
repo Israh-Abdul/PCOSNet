@@ -3,7 +3,7 @@ import numpy as np
 import gdown
 import os
 
-GDRIVE_URL = "https://drive.google.com/uc?id=YOUR_FILE_ID"  # Replace with your actual file ID
+GDRIVE_URL = "https://drive.google.com/uc?id=1ABM_i0WrNQf1OBw8fePznJNczWUNE2LR"  # Replace with your actual file ID
 MODEL_PATH = "./pcos_capsnet_eval_model.h5"
 
 def load_model_from_gdrive():
