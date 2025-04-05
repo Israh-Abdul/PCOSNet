@@ -15,7 +15,8 @@ class Mask(layers.Layer):
             mask = K.one_hot(indices=K.argmax(x, 1), num_classes=x.shape[1])
         masked = K.batch_flatten(inputs * K.expand_dims(mask, -1))
         return masked
-
+        
+@tf.keras.utils.register_keras_serializable()
 class CapsuleLayer(layers.Layer):
     def __init__(self, num_capsule, dim_capsule, routings=3, **kwargs):
         super(CapsuleLayer, self).__init__(**kwargs)
@@ -48,7 +49,16 @@ class CapsuleLayer(layers.Layer):
             if i < self.routings - 1:
                 b += tf.reduce_sum(u_hat * tf.expand_dims(v, 1), axis=-1)
         return v
-
+        
+    @classmethod
+    def from_config(cls, config):
+        return cls(
+            num_capsule=config['num_capsule'],
+            dim_capsule=config['dim_capsule'],
+            routings=config.get('routings', 3),
+            **{k: v for k, v in config.items() if k not in ['num_capsule', 'dim_capsule', 'routings']}
+        )
+        
     def squash(self, s, axis=-1):
         s_squared_norm = K.sum(K.square(s), axis, keepdims=True)
         scale = s_squared_norm / (1 + s_squared_norm) / K.sqrt(s_squared_norm + K.epsilon())
