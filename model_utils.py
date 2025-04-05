@@ -12,7 +12,7 @@ MODEL_PATH = "./pcos_capsnet_eval_model.h5"
 def download_model():
     """Download the model from Google Drive if it doesn't exist locally."""
     if not os.path.exists(MODEL_PATH):
-        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+        gdown.download(GDRIVE_URL, MODEL_PATH, quiet=False)
 
 def custom_objects():
     """Return a dictionary of custom objects for model loading."""
