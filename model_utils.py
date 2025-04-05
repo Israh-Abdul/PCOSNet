@@ -30,3 +30,10 @@ def load_model_from_gdrive():
     model = tf.keras.models.load_model(MODEL_PATH, custom_objects=custom_objects(), compile=False)
     print("Model loaded successfully.")
     return model
+
+def predict(model, image):
+    prediction = model.predict(np.expand_dims(image, axis=0))[0][0]
+    label = "PCOS Detected" if prediction > 0.5 else "Normal"
+    confidence = prediction * 100 if prediction > 0.5 else (1 - prediction) * 100
+    return label, confidence
+
